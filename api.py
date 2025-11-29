@@ -1,0 +1,61 @@
+from flask import Flask, jsonify, request
+from database import get_db, init_db
+import random
+app = Flask(__name__)
+init_db()
+@app.get("/startups")
+def all_startups():
+    db = get_db()
+    c = db.cursor()
+    c.execute("SELECT id, name, category, stage, description, rating FROM startups")
+    rows = c.fetchall()
+    db.close()
+    return jsonify([{"id":r[0],"name":r[1],"category":r[2],"stage":r[3],"description":r[4],"rating":r[5]} for r in rows])
+@app.get("/search")
+def search():
+    q = request.args.get("q", "")
+    db = get_db()
+    c = db.cursor()
+    c.execute("SELECT id, name, description FROM startups WHERE name LIKE ?", ('%'+q+'%',))
+    rows = c.fetchall()
+    db.close()
+    return jsonify([{"id":r[0],"name":r[1],"description":r[2]} for r in rows])
+@app.get("/random")
+def random_startup():
+    db = get_db()
+    c = db.cursor()
+    c.execute("SELECT id, name, category, stage FROM startups")
+    rows = c.fetchall()
+    db.close()
+    if not rows:
+        return jsonify({})
+    r = random.choice(rows)
+    return jsonify({"id": r[0], "name": r[1], "category": r[2], "stage": r[3]})
+@app.get("/top")
+def top():
+    db = get_db()
+    c = db.cursor()
+    c.execute("SELECT id, name, rating FROM startups ORDER BY rating DESC LIMIT 5")
+    rows = c.fetchall()
+    db.close()
+    return jsonify([{"id":r[0],"name":r[1],"rating":r[2]} for r in rows])
+@app.get("/events")
+def events():
+    db = get_db()
+    c = db.cursor()
+    c.execute("SELECT id, title, date, location FROM events ORDER ORDER BY date")
+    rows = c.fetchall()
+    db.close()
+    return jsonify([{"id":r[0],"title":r[1],"date":r[2],"location":r[3]} for r in rows])
+@app.post("/subscribe")
+def subscribe():
+    data = request.json
+    user_id = data.get("user_id")
+    startup_id = data.get("startup_id")
+    db = get_db()
+    c = db.cursor()
+    c.execute("INSERT INTO subscriptions (user_id, startup_id) VALUES (?, ?)", (user_id, startup_id))
+    db.commit()
+    db.close()
+    return jsonify({"status":"ok"})
+app.run(port=5000, host="0.0.0.0")
